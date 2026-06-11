@@ -1,0 +1,9 @@
+flask
+flask-sqlalchemy
+sqlalchemy
+python-dotenv
+psycopg2-binary
+pytest
+pytest-flask
+pytest-mock
+requests

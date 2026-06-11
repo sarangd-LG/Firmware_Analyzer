@@ -1,0 +1,37 @@
+services:
+    db:
+        image: postgres:16
+        container_name: firmware_analyzer_db
+        env_file:
+            - .flaskenv
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+            interval: 5s
+            timeout: 5s
+            retries: 10
+        ports:
+            - "5433:5433"
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        networks:
+            - firmware_analyzer_network
+    web:
+        build: .
+        container_name: firmware_analyzer_web
+        working_dir: /app
+        env_file:
+            - .flaskenv
+        ports:
+            - "5454:5454"
+        volumes:
+            - .:/app
+        depends_on:
+            db:
+                condition: service_healthy
+        networks:
+            - firmware_analyzer_network
+volumes:
+    postgres_data:
+networks:
+    firmware_analyzer_network:
+        driver: bridge
