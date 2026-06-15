@@ -25,6 +25,8 @@ instance/
 data.db
 *.sqlite
 *.sqlite3
+results/**
+temp/**
 
 # OS and editor files
 .DS_Store

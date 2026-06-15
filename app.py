@@ -1,5 +1,10 @@
-from flask import Flask
+from urllib import request
+import os
+import zipfile
+from flask import Flask, request, jsonify
 from db import db
+import re
+import csv
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///firmware_analyzer.db'
@@ -11,3 +16,89 @@ if __name__ == "__main__":
 
 with app.app_context():
     db.create_all()
+
+def extract_zip(file_path, extract_to="."):
+    try:
+        with zipfile.ZipFile(file_path, 'r') as zip_ref:
+            zip_ref.extractall(extract_to)
+            # after extracting the zip, the original zip file should be deleted to avoid confusion
+            #  check files if, they are any nested zips, they should be extracted as well
+            # make recursive call to this function with the path of nested zip files
+            for file in zip_ref.namelist():
+                if file.endswith('.zip'):
+                    nested_zip_path = os.path.join(extract_to, file)
+                    extract_zip(nested_zip_path, os.path.dirname(nested_zip_path))
+                    print(f"Extracted nested zip file: {os.path.dirname(nested_zip_path)}")
+        os.remove(file_path)
+    except zipfile.BadZipFile:
+        print(f"Error: {file_path} is not a valid zip file.")
+    except Exception as e:
+        print(f"An error occurred while extracting {file_path}: {e}")
+
+@app.post('/upload')
+def upload_archive():
+    file = request.files.get('archive')
+    if not file:
+        return jsonify({"error": "No file uploaded"}), 400
+
+    os.makedirs("temp", exist_ok=True)
+    temp_path = os.path.join("temp", file.filename)
+
+    #  csv file folder to store results of the scan is created if it does not exist
+    os.makedirs("results", exist_ok=True)
+
+    # Save the uploaded file to a temporary location
+    file.save(temp_path)
+
+    # Extract the zip file
+    extract_zip(temp_path, "temp")
+
+    # path where the extracted files are stored is returned
+    extracted_path = os.path.join("temp", os.path.splitext(file.filename)[0])
+
+    # csv file to store results of the scan 
+    csv_file_path = os.path.join("results", "scan_results.csv")
+
+    scan_result = analyze_firmware(extracted_path, csv_file_path)
+
+    return jsonify({"message": "File uploaded and extracted successfully", "scan_result": scan_result}), 200
+
+def analyze_firmware(file_path, csv_file_path):
+    result = []
+    token_pattern = re.compile(r"<Tkn\d{3}[A-Z]{5}Tkn>")
+    for root, dirs, files in os.walk(file_path):
+        for file in files:
+            current_file_path = os.path.join(root, file)
+            relative_path = os.path.relpath(current_file_path, "temp")
+            with open(current_file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+                tokens = token_pattern.findall(content)
+                if tokens:
+                    map = {}
+                    for token in tokens:
+                        if token in map:
+                            map[token] += 1
+                        else:
+                            map[token] = 1
+                    for token, count in map.items():
+                        result.append({
+                            "file_path": relative_path,
+                            "token": token,
+                            "count": count
+                        })
+                    write_to_CSV(result, csv_file_path)
+    return result
+
+def write_to_CSV(scan_result, csv_file_path):
+    try:
+        with open(csv_file_path, 'w', newline='', encoding='utf-8') as file:
+            writer = csv.DictWriter(file, fieldnames=["file_path", "token", "count"])
+            writer.writeheader()
+            for row in scan_result:
+                writer.writerow(row)
+    except Exception as e:
+        print(f"An error occurred while writing to CSV: {e}")
+
+# TODO The function also needs to print to a json of the total finding of each token in all of the 
+# files. for example, if token <Tkn435JFIRKTkn> was found only in f1- 5 times and in f2 
+# 3 times it should print: 
