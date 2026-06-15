@@ -1,4 +1,5 @@
 from urllib import request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
 import zipfile
 from flask import Flask, request, jsonify
@@ -65,29 +66,34 @@ def upload_archive():
 
 def analyze_firmware(file_path, csv_file_path):
     result = []
-    token_pattern = re.compile(r"<Tkn\d{3}[A-Z]{5}Tkn>")
+    files_to_scan = []
+
     for root, dirs, files in os.walk(file_path):
         for file in files:
             current_file_path = os.path.join(root, file)
             relative_path = os.path.relpath(current_file_path, "temp")
-            with open(current_file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                content = f.read()
-                tokens = token_pattern.findall(content)
-                if tokens:
-                    map = {}
-                    for token in tokens:
-                        if token in map:
-                            map[token] += 1
-                        else:
-                            map[token] = 1
-                    for token, count in map.items():
-                        result.append({
-                            "file_path": relative_path,
-                            "token": token,
-                            "count": count
-                        })
-                    write_to_CSV(result, csv_file_path)
-    return result
+            files_to_scan.append((current_file_path, relative_path))
+
+    with ThreadPoolExecutor() as executor:
+        futures = [
+            executor.submit(scan_file, current_file_path, relative_path)
+            for current_file_path, relative_path in files_to_scan
+        ]
+
+        for future in as_completed(futures):
+            result.extend(future.result())
+    sorted_result = sorted(result, key=lambda x: (len(x["file_path"]), x["count"], x["token"]))
+    write_to_CSV(sorted_result, csv_file_path)
+
+    token_totals = {}
+    for row in sorted_result:
+        token = row["token"]
+        count = row["count"]
+        if token in token_totals:
+            token_totals[token] += count
+        else:
+            token_totals[token] = count
+    return token_totals
 
 def write_to_CSV(scan_result, csv_file_path):
     try:
@@ -99,6 +105,23 @@ def write_to_CSV(scan_result, csv_file_path):
     except Exception as e:
         print(f"An error occurred while writing to CSV: {e}")
 
-# TODO The function also needs to print to a json of the total finding of each token in all of the 
-# files. for example, if token <Tkn435JFIRKTkn> was found only in f1- 5 times and in f2 
-# 3 times it should print: 
+def scan_file(current_file_path, relative_path):
+    rows = []
+    token_pattern = re.compile(r"<Tkn\d{3}[A-Z]{5}Tkn>")
+    with open(current_file_path, 'r', encoding='utf-8', errors='ignore') as f:
+        content = f.read()
+        tokens = token_pattern.findall(content)
+        if tokens:
+            map = {}
+            for token in tokens:
+                if token in map:
+                    map[token] += 1
+                else:
+                    map[token] = 1
+            for token, count in map.items():
+                rows.append({
+                    "file_path": relative_path,
+                    "token": token,
+                    "count": count
+                })
+    return rows
