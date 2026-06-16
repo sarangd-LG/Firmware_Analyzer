@@ -2,6 +2,7 @@ import os
 from app import app
 from pathlib import Path
 
+
 def test_upload_archive():
     file_path = Path(__file__).resolve().parent / 'archive.zip'
     with app.test_client() as client, open(file_path, 'rb') as file:
@@ -10,10 +11,15 @@ def test_upload_archive():
         data = response.get_json()
         assert "message" in data
         assert data["message"] == "File uploaded and extracted successfully"
+        assert "request_id" in data
+        assert Path(data["csv_file_path"]).exists()
 
 def test_file_is_extracted():
-    with app.test_client() as client:
-        extracted_path = Path("temp") / "archive"
+    file_path = Path(__file__).resolve().parent / 'archive.zip'
+    with app.test_client() as client, open(file_path, 'rb') as file:
+        response = client.post('/upload', data={'archive': (file, 'archive.zip')}, content_type='multipart/form-data')
+        data = response.get_json()
+        extracted_path = Path("temp") / data["request_id"] / "archive"
         assert extracted_path.exists()
         assert extracted_path.is_dir()
         #  check if there is no zip file in extracted folder

@@ -1,7 +1,7 @@
-from urllib import request
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
 import zipfile
+import uuid
 from flask import Flask, request, jsonify
 from werkzeug.utils import secure_filename
 from db import db
@@ -18,6 +18,17 @@ if __name__ == "__main__":
 
 with app.app_context():
     db.create_all()
+
+
+def get_scan_worker_count():
+    return max(1, int(os.getenv("SCAN_WORKERS", "4")))
+
+
+def get_extracted_path(work_dir, filename):
+    extracted_path = os.path.join(work_dir, os.path.splitext(filename)[0])
+    if os.path.isdir(extracted_path):
+        return extracted_path
+    return work_dir
 
 def extract_zip(file_path, extract_to="."):
     try:
@@ -47,39 +58,50 @@ def upload_archive():
     if not filename:
         return jsonify({"error": "Invalid file name"}), 400
 
-    os.makedirs("temp", exist_ok=True)
-    temp_path = os.path.join("temp", filename)
+    request_id = uuid.uuid4().hex
+    request_temp_dir = os.path.join("temp", request_id)
+    request_results_dir = os.path.join("results", request_id)
 
-    #  csv file folder to store results of the scan is created if it does not exist
-    os.makedirs("results", exist_ok=True)
+    os.makedirs(request_temp_dir, exist_ok=True)
+    os.makedirs(request_results_dir, exist_ok=True)
+
+    temp_path = os.path.join(request_temp_dir, filename)
 
     # Save the uploaded file to a temporary location
     file.save(temp_path)
 
     # Extract the zip file
-    extract_zip(temp_path, "temp")
+    extract_zip(temp_path, request_temp_dir)
 
     # path where the extracted files are stored is returned
-    extracted_path = os.path.join("temp", os.path.splitext(filename)[0])
+    extracted_path = get_extracted_path(request_temp_dir, filename)
 
     # csv file to store results of the scan 
-    csv_file_path = os.path.join("results", "scan_results.csv")
+    csv_file_path = os.path.join(request_results_dir, "scan_results.csv")
 
-    scan_result = analyze_firmware(extracted_path, csv_file_path)
+    scan_result = analyze_firmware(extracted_path, csv_file_path, request_temp_dir)
 
-    return jsonify({"message": "File uploaded and extracted successfully", "scan_result": scan_result}), 200
+    return jsonify({
+        "message": "File uploaded and extracted successfully",
+        "request_id": request_id,
+        "scan_result": scan_result,
+        "csv_file_path": csv_file_path,
+    }), 200
 
-def analyze_firmware(file_path, csv_file_path):
+
+def analyze_firmware(file_path, csv_file_path, relative_root=None):
     result = []
     files_to_scan = []
+    if relative_root is None:
+        relative_root = file_path
 
     for root, dirs, files in os.walk(file_path):
         for file in files:
             current_file_path = os.path.join(root, file)
-            relative_path = os.path.relpath(current_file_path, "temp")
+            relative_path = os.path.relpath(current_file_path, relative_root)
             files_to_scan.append((current_file_path, relative_path))
 
-    with ProcessPoolExecutor() as executor:
+    with ThreadPoolExecutor(max_workers=get_scan_worker_count()) as executor:
         futures = [
             executor.submit(scan_file, current_file_path, relative_path)
             for current_file_path, relative_path in files_to_scan

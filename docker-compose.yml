@@ -19,6 +19,7 @@ services:
         build: .
         container_name: firmware_analyzer_web
         working_dir: /app
+        command: gunicorn -c gunicorn.conf.py app:app
         env_file:
             - .flaskenv
         ports:
