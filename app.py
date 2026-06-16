@@ -1,5 +1,5 @@
 from urllib import request
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 import os
 import zipfile
 from flask import Flask, request, jsonify
@@ -79,7 +79,7 @@ def analyze_firmware(file_path, csv_file_path):
             relative_path = os.path.relpath(current_file_path, "temp")
             files_to_scan.append((current_file_path, relative_path))
 
-    with ThreadPoolExecutor() as executor:
+    with ProcessPoolExecutor() as executor:
         futures = [
             executor.submit(scan_file, current_file_path, relative_path)
             for current_file_path, relative_path in files_to_scan
