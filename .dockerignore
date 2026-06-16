@@ -27,6 +27,7 @@ data.db
 *.sqlite3
 results/**
 temp/**
+test/
 
 # OS and editor files
 .DS_Store

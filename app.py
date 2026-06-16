@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
 import zipfile
 from flask import Flask, request, jsonify
+from werkzeug.utils import secure_filename
 from db import db
 import re
 import csv
@@ -30,7 +31,7 @@ def extract_zip(file_path, extract_to="."):
                     nested_zip_path = os.path.join(extract_to, file)
                     extract_zip(nested_zip_path, os.path.dirname(nested_zip_path))
                     print(f"Extracted nested zip file: {os.path.dirname(nested_zip_path)}")
-        os.remove(file_path)
+                    os.remove(nested_zip_path)
     except zipfile.BadZipFile:
         print(f"Error: {file_path} is not a valid zip file.")
     except Exception as e:
@@ -42,8 +43,12 @@ def upload_archive():
     if not file:
         return jsonify({"error": "No file uploaded"}), 400
 
+    filename = secure_filename(file.filename)
+    if not filename:
+        return jsonify({"error": "Invalid file name"}), 400
+
     os.makedirs("temp", exist_ok=True)
-    temp_path = os.path.join("temp", file.filename)
+    temp_path = os.path.join("temp", filename)
 
     #  csv file folder to store results of the scan is created if it does not exist
     os.makedirs("results", exist_ok=True)
@@ -55,7 +60,7 @@ def upload_archive():
     extract_zip(temp_path, "temp")
 
     # path where the extracted files are stored is returned
-    extracted_path = os.path.join("temp", os.path.splitext(file.filename)[0])
+    extracted_path = os.path.join("temp", os.path.splitext(filename)[0])
 
     # csv file to store results of the scan 
     csv_file_path = os.path.join("results", "scan_results.csv")

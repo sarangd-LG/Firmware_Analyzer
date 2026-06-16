@@ -10,7 +10,7 @@ add the following values in the .flaskenv file -
 * FLASK_APP = app
 * FLASK_DEBUG =1
 * DB_USER = firmware_analizer
-* DB_PASSWORD = <password>
+* DB_PASSWORD = <db_password>
 * BD_HOST = db
 * DB_NAME = <db_name>
 * POSTGRES_USER = <postgres_user>
@@ -37,3 +37,8 @@ For example: "Tkn435JFIRKTkn".
 * you will get the scan result in the output 
 * you can also see the CSV file in path - "results/"
 * ![alt text](img/image-2.png)
+
+## To run testcases follow the below commands
+
+move to the test folder - "cd test"
+run - "pytest -s -v test_app.py"
