@@ -1,0 +1,22 @@
+test/test_app.py
+  s_b594668b02b50c::t_2d6f3c8d011ab4 8-38
+  s_b594668b02b50c::t_fc651a282ec687 1
+app.py
+  s_b594668b02b50c::t_f02bea3a6b5f5e 6,34,46-49,51,63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "ace660852acef4939cc8f34c0d9490bf65919eeb",
+  "prompts": {},
+  "sessions": {
+    "s_b594668b02b50c": {
+      "agent_id": {
+        "tool": "github-copilot",
+        "id": "98f538b5-d52f-454d-b84f-66f1c596276a",
+        "model": "gpt-5.3-codex"
+      },
+      "human_author": "Sarang D/LGSI Cyber Security Unit <sarang.d@lge.com>"
+    }
+  }
+}
