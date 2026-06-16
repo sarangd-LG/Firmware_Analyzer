@@ -26,14 +26,6 @@ add the following values in the .flaskenv file -
 ## Build 
 docker-compose up --build
 
-The web container uses Gunicorn in Docker so the app can serve multiple requests with multiple worker processes instead of the Flask development server.
-
-When using Docker Compose, the `web` service starts with:
-
-* `gunicorn -c gunicorn.conf.py app:app`
-
-The Gunicorn values are configured in ".flaskenv" through environment variables on the `web` service.
-
 ## Shut down 
 
 docker-compose down
@@ -44,10 +36,10 @@ docker-compose down
 * Starting with"<Tkn" then later 3 digits, 5 English capital letters followed by a "Tkn>". 
 For example: "Tkn435JFIRKTkn". 
 * Now create a new post request for path "/upload" in postman and pass the archive(zip file) in the body, give the key name as "archive" and pass the file path as value
-* ![alt text](img/image-1.png)
+* ![alt text](img/image.png)
 * you will get the scan result in the output 
 * each upload gets its own request id, temporary folder under `temp/<request_id>/`, and CSV output under `results/<request_id>/scan_results.csv`
-* ![alt text](img/image-2.png)
+* ![alt text]![alt text](img/image2.png)
 
 ## To run testcases follow the below commands
 
